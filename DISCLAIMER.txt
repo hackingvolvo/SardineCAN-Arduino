@@ -1,0 +1,7 @@
+WARNING! Read this before doing anything!
+
+Software depicted here is VERY experimental, and is made by hackers, for hackers. It is redistributed only for informational purposes. Even though some testing has been done and any big damages are unlikely, I cannot guarantee that none would occur.  
+
+Olaf (me) or any other Hacking Volvo blog author assumes no responsibility or liability for any damages, problems or any other issues caused to you or 
+your property by any attempt to use Sardine CAN or follow any instructions here. You agree to use any software provided here ENTIRELY AT YOUR OWN RISK. Thus I cannot be held responsible if you manage to burn your car, electrocute yourself or flash your ECU so that breaks stop working and you end up driving over your neighbour or your grandma. 
+

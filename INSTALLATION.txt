@@ -1,0 +1,21 @@
+Sardine CAN - Arduino firmware installation procedure
+
+- Acquire Arduino UNO ( https://www.sparkfun.com/products/9950 ) (no matter whether it's revision 2 or 3)
+  and 
+  Arduino CAN BUS shield ( https://www.sparkfun.com/products/10039 )
+
+- Install Arduino drivers and SDK / IDE. Make sure it works with a simple Hello world application. Test also the communication with Serial Monitor
+  embedded in the Arduino IDE. Note which COM port is being used. Make sure you use 115200 baud rate (the default speed in Sardine CAN)
+
+- copy Canbus directory under your Arduino SDK library directory (eg. c:\Arduino\libraries )
+
+- Open the sardine.ino project in the IDE. Compile and flash Arduino with it.
+
+- Assemble custom DB9-OBD cable. My cable is identical to this cable ( https://www.sparkfun.com/products/10087 ), but in this implementation only
+  ground, CAN high and CAN low pins are used (you can connect battery power too, but I have been powering the Sardine only via the USB port of laptop) 
+  
+  NOTE! In this stage the Sardine CAN doesn't yet support ISO9141 K-line initialization, so the diagnostic relay stays closed at least in my Volvo S80 2002. What it means is that you won't be able to connect it straight to the diagnostic OBD port under the steering wheel! I have tested the device by connecting it to the AEM connector available in most models in the rear right corner of the trunk. AEM connector offers straight connectivity to low speed CAN bus. Note also that I haven't tested the Sardine CAN yet in the high speed bus!
+  
+  If you already have AEM or you are missing the AEM connector, you might have to resort to adding more wiring. In the former case add Y-connection to the AEM connector. In the latter case connect Sardine CAN straight to the AEM extension pins on the REM (rear electronic module). For more info, see the electronic diagram of your car.
+  
+- For information about installing the Sardine CAN DLL, see INSTRUCTIONS.txt of the "SardineCAN-Win32" repository.

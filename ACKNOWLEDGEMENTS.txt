@@ -1,0 +1,8 @@
+Thanks goes to following people from whom I've used code in this firmware:
+
+- Fabian Greif for the mcp2515 library (http://www.kreatives-chaos.com/artikel/universelle-can-bibliothek)
+- Nuno Alves for the modified mcp2515 library (http://www.nunoalves.com/open_source/?p=475) which allows sending frames with extended identifier 
+  (I've further modified the library myself: Added also possibility to  _read_ frames that use extended identifier :)
+- Sukkin Pang (of SK Pang Electronics) for the Can bus library (http://www.skpang.co.uk/catalog/arduino-canbus-shield-with-usd-card-holder-p-706.html)
+
+- And of course all the people who have been developing standard Arduino libraries!
