@@ -587,7 +587,7 @@ void parse_heater_msgs( tCAN * message )
       if (message->data[4]==0x30) 
       {
         // coolant temp
-        // 06 a0 == 1696 == 69.4
+        // 06 a0 == 1696 == 69.4 
         // 06 ad == 1709 == 70.9
         // 06 c0 == 1728 == 72.4
         // 07 19 == 1817 == 81.7
@@ -691,8 +691,6 @@ void handle_host_messages()
           if  ( (receivedByte =='\n') || (receivedByte =='\r'))
           {
 //          printf("parsing cmd..\n");
-//          index=0;
-//          int len = strlen(msgFromHost);
           if ( (msgFromHost[0]=='{') && (msgFromHost[msgLen-1]=='}') )
             {
             // strip wavy brackets and parse the command
