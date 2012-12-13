@@ -1,0 +1,5 @@
+0.21 alpha:
+-Fixed fatal bug in message parsing
+
+0.2 alpha: 
+-First version

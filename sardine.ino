@@ -1,4 +1,4 @@
-/* Sardine CAN (Open Source J2534 device) - Arduino firmware - version 0.2 alpha
+/* Sardine CAN (Open Source J2534 device) - Arduino firmware - version 0.21 alpha
 **
 ** Copyright (C) 2012 Olaf @ Hacking Volvo blog (hackingvolvo.blogspot.com)
 ** Author: Olaf <hackingvolvo@gmail.com>
@@ -41,6 +41,8 @@ LiquidCrystal lcd(7, 8, 3, 4, 5, 6);
   unsigned long last_keepalive_msg;
   unsigned long keepalive_timeout; // timeout in 1/10 seconds. 0=keepalive messaging disabled
 
+  char msgFromHost[256]; // message that is being read from host
+  int msgLen=0;
 
 // =========  Here we enable us to use printf to write to host instead of having to use Serial.print!
 // we need fundamental FILE definitions and printf declarations
@@ -466,9 +468,19 @@ int parse_cmd( char * msg )
     }
   else if (strcmp(cmd,":msg")==0)
     {
-    if ( (argcount<3) || (args[1].type != STRING) || (args[2].type != DATA_CHUNK) || (args[2].datalen<4) )
+    if (argcount<3)
       {
-      send_to_host("!msg_too_few_args (%d)",args[2].datalen);
+      send_to_host("!msg_too_few_args (%d)",argcount);
+      return -1;
+      }
+    if ( (args[1].type != STRING) || (args[2].type != DATA_CHUNK) )
+      {
+      send_to_host("!msg_invalid args");
+      return -1;
+      }
+    if (args[2].datalen<4)
+      {
+      send_to_host("!msg_too_small_data_chunk (%d)",args[2].datalen);
       return -1;
       }
      // FIXME: ignoring flags for now, assuming this is normal CAN bus message.
@@ -674,26 +686,25 @@ if (message.header.rtr)
 void handle_host_messages()
 {
  int receivedByte;
- char msg[256];
- int index=0;
  while (Serial.available() > 0) {
 	receivedByte = Serial.read();
           if  ( (receivedByte =='\n') || (receivedByte =='\r'))
           {
 //          printf("parsing cmd..\n");
-          index=0;
-          if ( (msg[0]=='{') && (msg[strlen(msg)-1]=='}') )
+//          index=0;
+//          int len = strlen(msgFromHost);
+          if ( (msgFromHost[0]=='{') && (msgFromHost[msgLen-1]=='}') )
             {
             // strip wavy brackets and parse the command
-            msg[strlen(msg)-1]=0;
-            if (parse_cmd(&msg[1])==-1)
+            msgFromHost[msgLen-1]=0;
+            if (parse_cmd(&msgFromHost[1])==-1)
               {
 #ifdef LCD
               lcd.clear();
               lcd.setCursor(0, 0);
               lcd.print("erp");
               lcd.setCursor(4, 0);
-              lcd.print(msg);
+              lcd.print(msgFromHost);
 #endif
               }            
             }
@@ -704,20 +715,21 @@ void handle_host_messages()
           lcd.setCursor(0, 0);
           lcd.print("inv");
           lcd.setCursor(4, 0);
-          lcd.print(msg);
+          lcd.print(msgFromHost);
 #endif
-            send_to_host("!invalid_data_format '%s'",msg);
+            send_to_host("!invalid_data_format '%s'",msgFromHost);
             }
+            msgLen=0;
           }
           else if (receivedByte =='\b')  // handle backspaces as well (since we might be testing functionality on terminal)
           {
-            if (index>0)
-              index--; 
+            if (msgLen>0)
+              msgLen--; 
           }
           else
           {
-            msg[index++] = receivedByte;
-            msg[index]=0;
+            msgFromHost[msgLen++] = receivedByte;
+            msgFromHost[msgLen]=0;
 	  }
   }
 }
