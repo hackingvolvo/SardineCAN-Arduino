@@ -1,6 +1,7 @@
 0.3 alpha
 -Added support for Lawicel CANUSB/CAN232 commandset (this the default protocol currently)
 -Lots of code restructuring 
+-Changed command separator from linefeed to carriage return
 
 0.21 alpha:
 -Fixed fatal bug in message parsing
