@@ -1,4 +1,4 @@
-/*
+/* Sardine CAN (Open Source J2534 device) - Arduino firmware - version 0.3 alpha
 **
 ** Copyright (C) 2012 Olaf @ Hacking Volvo blog (hackingvolvo.blogspot.com)
 ** Author: Olaf <hackingvolvo@gmail.com>
@@ -17,16 +17,44 @@
 ** License along with this program; if not, <http://www.gnu.org/licenses/>.
 **
 */
-#define MAX_CHUNK_SIZE 16
+#ifndef _SARDINE_H
+#define _SARDINE_H
+#include <mcp2515.h> 
 
-enum  param_type { NOTHING, VALUE, STRING, DATA_CHUNK };
+#define MODE_NORMAL 0
+#define MODE_SLEEP 1
+#define MODE_LOOPBACK 2
+#define MODE_LISTEN 3
+#define MODE_CONFIG 4
 
-typedef struct {
-  int type;
-  char * str;
-  unsigned long value;
-  unsigned char data[MAX_CHUNK_SIZE];
-  int datalen;
-} my_param;
+#define send_to_host(...) {\
+  printf("{");  \
+  printf(__VA_ARGS__);  \
+  printf("}\r"); } 
 
+#define _send_to_host(...) { printf(__VA_ARGS__); }
+
+int convert_string_to_int( char * src, unsigned long * dest, int byteCount );
+int convert_string_to_int( char * src, unsigned long * dest );
+int convert_ascii_to_nibble(char c);
+
+
+int send_CAN_msg(tCAN * msg);
+void set_keepalive_timeout( unsigned long timeout );
+int init_module( unsigned long baudrate );
+int set_fixed_filter_pattern( unsigned long pattern );
+int set_fixed_filter_mask( unsigned long mask );
+int is_in_normal_mode();
+unsigned int get_operation_mode();
+
+int switch_mode( unsigned int mode);
+
+uint8_t read_status();
+void clear_bus_errors();
+
+uint8_t read_CAN_reg (uint8_t reg);
+void write_CAN_reg (uint8_t reg, uint8_t data);
+
+
+#endif
 

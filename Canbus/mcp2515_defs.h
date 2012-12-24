@@ -176,6 +176,7 @@
 #define REQOP1		6
 #define REQOP0		5
 #define ABAT		4
+#define OSM         3
 #define CLKEN		2
 #define CLKPRE1		1
 #define CLKPRE0		0
