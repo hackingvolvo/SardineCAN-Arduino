@@ -1,4 +1,4 @@
-/* Sardine CAN (Open Source J2534 device) - Arduino firmware - version 0.21 alpha
+/* Sardine CAN (Open Source J2534 device) - Arduino firmware - version 0.22 alpha
 **
 ** Copyright (C) 2012 Olaf @ Hacking Volvo blog (hackingvolvo.blogspot.com)
 ** Author: Olaf <hackingvolvo@gmail.com>
@@ -418,7 +418,7 @@ int parse_cmd( char * msg )
     }
   else if (strcmp(cmd,":version")==0)
     {
-    send_to_host("!version 0.2");
+    send_to_host("!version 0.22");
     }
   else if (strcmp(cmd,":keepalive")==0)
     {
@@ -707,6 +707,7 @@ void handle_host_messages()
               }            
             }
             else
+            if (msgLen>0) // ignore empty messages
             {
 #ifdef LCD
           lcd.clear();
@@ -718,11 +719,14 @@ void handle_host_messages()
             send_to_host("!invalid_data_format '%s'",msgFromHost);
             }
             msgLen=0;
+            msgFromHost[msgLen]=0;
           }
           else if (receivedByte =='\b')  // handle backspaces as well (since we might be testing functionality on terminal)
           {
             if (msgLen>0)
-              msgLen--; 
+              {
+              msgFromHost[--msgLen]=0;
+              }
           }
           else
           {

@@ -1,3 +1,6 @@
+0.22 alpha:
+-Fixed error message when parsing empty message
+
 0.21 alpha:
 -Fixed fatal bug in message parsing
 
