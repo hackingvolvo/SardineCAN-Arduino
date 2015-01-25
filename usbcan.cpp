@@ -1,4 +1,4 @@
-/* Sardine CAN (Open Source J2534 device) - Arduino firmware - version 0.3 alpha
+/* Sardine CAN (Open Source J2534 device) - Arduino firmware - version 0.4 alpha
 **
 ** Copyright (C) 2012 Olaf @ Hacking Volvo blog (hackingvolvo.blogspot.com)
 ** Author: Olaf <hackingvolvo@gmail.com>
@@ -184,7 +184,8 @@ transmit_CAN (void)
     for (;i<8;i++)
       msg.data[i] = CAN_tx_msg.data[i];
       
-  send_CAN_msg(&msg);
+  if (send_CAN_msg(&msg)==0)
+    return ERROR;
   return CR;
 }
 

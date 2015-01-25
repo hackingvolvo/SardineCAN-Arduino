@@ -31,10 +31,6 @@
 #define __MAIN_H__
 #include <Arduino.h>
 
-#define HW_VER        0x01		// hardware version
-#define SW_VER        0x01		// software version
-#define SW_VER_MAJOR  0x00    // software major version
-#define SW_VER_MINOR  0x03    // software minor version
 #define USBCAN_SERIAL        "0001"	// device serial number
 
 #if !defined(CR)

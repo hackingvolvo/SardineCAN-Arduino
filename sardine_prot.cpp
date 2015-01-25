@@ -1,4 +1,4 @@
-/* Sardine CAN (Open Source J2534 device) - Arduino firmware - version 0.3 alpha
+/* Sardine CAN (Open Source J2534 device) - Arduino firmware - version 0.4 alpha
 **
 ** Copyright (C) 2012 Olaf @ Hacking Volvo blog (hackingvolvo.blogspot.com)
 ** Author: Olaf <hackingvolvo@gmail.com>
@@ -270,7 +270,7 @@ int parse_cmd( char * msg )
     }
   else if (strcmp(cmd,":version")==0)
     {
-    send_to_host("!version 0.2");
+    send_to_host("!version %x.%x",SW_VER_MAJOR,SW_VER_MINOR);
     }
   else if (strcmp(cmd,":keepalive")==0)
     {
@@ -319,6 +319,34 @@ int parse_cmd( char * msg )
       manual_msg.data[i] = args[1].data[i];
     manual_msg.header.length = args[1].datalen;
     }
+  else if (strcmp(cmd,":open")==0)
+  {
+    if (get_operation_mode()==MODE_NORMAL)
+    {
+      send_to_host("!already_open!");
+      return -1;
+    }
+    switch_mode(MODE_NORMAL);
+  }
+  else if (strcmp(cmd,":close")==0)
+  {
+    if (get_operation_mode()==MODE_CONFIG)
+    {
+      send_to_host("!already_closed!");
+      return -1;
+    }
+    switch_mode(MODE_CONFIG);
+  } 
+  else if (strncmp(cmd,":bitrate",8)==0)
+  {
+    if (get_operation_mode()!=MODE_CONFIG)
+    {
+      send_to_host("!connection_open!");
+      return -1;
+    }
+    // TODO: parse and set bitrate
+  }
+  
   else if (strcmp(cmd,":msg")==0)
     {
     if (argcount<3)

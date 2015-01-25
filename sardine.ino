@@ -1,4 +1,4 @@
-/* Sardine CAN (Open Source J2534 device) - Arduino firmware - version 0.3 alpha
+/* Sardine CAN (Open Source J2534 device) - Arduino firmware - version 0.4 alpha
 **
 ** Copyright (C) 2012 Olaf @ Hacking Volvo blog (hackingvolvo.blogspot.com)
 ** Author: Olaf <hackingvolvo@gmail.com>
@@ -17,6 +17,10 @@
 ** License along with this program; if not, <http://www.gnu.org/licenses/>.
 **
 */
+
+//#define DEBUG_MAIN
+//#define DEBUG_FREE_MEM
+
 #include <TimerOne.h>
 #include <EEPROM.h>
 #include <Canbus.h>
@@ -26,6 +30,7 @@
 #include <mcp2515_defs.h> 
 #include <LiquidCrystal.h>
 
+#include "led.h"
 #include "usbcan.h"
 #include "sardine_prot.h"
 #include <stdio.h>
@@ -38,10 +43,15 @@ char foo;  // for the sake of Arduino header parsing anti-automagic. Remove and 
 // transmit succeeded and thus sending fails. If this happens, MCP2515 will keep on sending the message forever and transmit buffers will eventually
 // fill up. Also cheap ELM327 clones (with older firmware) do not support ACK-signaling, so a network consisting of MCP2515 + ELM327 does not work
 // if ONE_SHOT_MODE is not enabled. You should however disable this when connecting Sardine CAN to a car
-#define ONE_SHOT_MODE
+//#define ONE_SHOT_MODE
 
 // In addition to fixed filter, we pass the replies to diagnostic messages (between Volvo CAN modules and VIDA) 
 #define PASS_VOLVO_DIAGNOSTIC_MSGS
+
+// Filter does not pass messages by default, since VIDA seems to crash at start if all CAN messages are transmitted to it. If you are not using VIDA but
+// for example CAN Hacker, you can uncomment this define or use Lawicell 'M' and 'm' commands to set acceptance register (set mask to 0x0 to pass all messages).
+//#define PASS_ALL_MSGS
+
 
 //#define LCD
 
@@ -51,6 +61,13 @@ char foo;  // for the sake of Arduino header parsing anti-automagic. Remove and 
 LiquidCrystal lcd(A0, A1, A2, A3, A4, A5);  // RS_pin, enable_pin, D4, D5, D6, D7
 #endif
 
+#ifdef ENABLE_LEDS
+led status_LED;
+led CAN_LED;
+led error_LED;
+#endif
+
+
 #define USBCAN    // we are using CANUSB (Lawicel) / CAN232 format by default now
 
   
@@ -58,12 +75,20 @@ LiquidCrystal lcd(A0, A1, A2, A3, A4, A5);  // RS_pin, enable_pin, D4, D5, D6, D
   unsigned long last_keepalive_msg;
   unsigned long keepalive_timeout; // timeout in 1/10 seconds. 0=keepalive messaging disabled
   
+ tCAN keepalive_msg2;  // hard coded keepalive message
+  unsigned long last_keepalive_msg2;
+  unsigned long keepalive_timeout2; // timeout in 1/10 seconds. 0=keepalive messaging disabled
+    
   // filters
   unsigned long fixed_filter_pattern;
   unsigned long fixed_filter_mask;
 
   char msgFromHost[256]; // message that is being read from host
   int msgLen=0;
+  
+  uint8_t status;
+  unsigned int errorFlags;
+
 
 // =========  Here we enable us to use printf to write to host instead of having to use Serial.print!
 // we need fundamental FILE definitions and printf declarations
@@ -80,6 +105,99 @@ static int uart_putchar (char c, FILE *stream)
     Serial.write(c) ;
     return 0 ;
 }
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+void SetErrorStatus( unsigned int errStatus )
+{
+#ifdef DEBUG_MAIN
+	printf("SetErrStatus: %d\n",errStatus);
+#endif
+	errorFlags |= errStatus;
+	switch(errStatus)
+	{
+	case ERRSTATUS_OUT_OF_MEMORY:
+		{
+		SetBlinkLED( &error_LED, 50, 50 );
+		}
+		break;
+	case ERRSTATUS_CAN_INIT_ERROR:
+		{
+	        ClearLED( &status_LED );
+		SetBlinkLED( &error_LED, 200, 200 );
+		}
+		break;
+	case ERRSTATUS_CAN_TX_BUFFER_OVERFLOW:
+		{
+		SetMultipleBlinkLED( &error_LED, 2, 100, 100, 800 );
+		}
+		break;
+	case ERRSTATUS_CAN_RX_BUFFER_OVERFLOW:
+		{
+		SetMultipleBlinkLED( &error_LED, 3, 100, 100, 800 );
+		}
+		break;
+	case ERRSTATUS_NONE:
+		{
+		ClearLED( &error_LED );
+		}
+		break;
+		
+	default:
+		break;
+	}
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void ClearErrorStatus( unsigned int errStatus )
+{
+	errorFlags &= ~errStatus;
+	SetErrorStatus(errorFlags); // update the leds
+}
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void SetStatus( uint8_t currStatus )
+{
+#ifdef DEBUG_MAIN
+	printf("SetStatus: %d\n",currStatus);
+#endif
+	switch (currStatus)
+	{
+	case STATUS_INIT:
+		{
+		status = currStatus;
+	    SetBlinkLED( &status_LED, 200, 800 );
+		}
+		break;
+	case STATUS_READY:
+		{
+		status = currStatus;
+	    SetLED( &status_LED, 0 );
+		}
+		break;
+	case STATUS_UNRECOVERABLE_ERROR:
+		{
+		status = currStatus;
+		ClearLED(&status_LED);
+		}
+		break;
+	default:
+		break;
+	}
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+int GetStatus()
+{
+	return status;
+}
+
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -177,15 +295,11 @@ void write_CAN_reg (uint8_t reg,
 
 int send_CAN_msg(tCAN * msg)
   {   
-
+//Serial.println("sendcanmsg");
 // FIXME: here we need to see if mcp2512 send buffer is full etc!
-/*
-  uint8_t status = mcp2515_read_status(SPI_READ_STATUS);
-  if (status!=0)
-   {
-//      send_to_host("!mcp2512_read_status: 0x%x",status);
-  }
 
+
+/*
   uint8_t data;
   data = mcp2515_read_register(TXB0CTRL);
   Serial.print("TXB0CTRL: ");
@@ -197,6 +311,7 @@ int send_CAN_msg(tCAN * msg)
   show_CAN_msg_on_LCD(msg, false);
 #endif
 
+  SetLED(&CAN_LED, 50);
   int ret=mcp2515_send_message_J1939(msg);  // ret=0 (buffers full), 1 or 2 = used send buffer
   
   if (ret==0)
@@ -205,7 +320,18 @@ int send_CAN_msg(tCAN * msg)
     lcd.setCursor(0,0);
     lcd.print("ovfl");  // overflow
 #endif
+  SetErrorStatus(ERRSTATUS_CAN_TX_BUFFER_OVERFLOW);
+
+#ifndef USBCAN
+    uint8_t status = mcp2515_read_status(SPI_READ_STATUS);
+    if (status!=0)
+    {
+      send_to_host("!mcp2512_read_status: 0x%x",status);
+    }
+    send_to_host("!mcp2515_send_message_J1939: 0x%x",ret);
+#endif
   }
+
   return ret; // FIXME: we return the result of adding the msg to MCP2515 internal buffer, not actually the result of sending it! 
   }
 
@@ -236,6 +362,40 @@ void create_standard_ecu_filter()
 }
 */
 
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+int freeRam () {
+  extern int __heap_start, *__brkval; 
+  int v; 
+  return (int) &v - (__brkval == 0 ? (int) &__heap_start : (int) __brkval); 
+}
+
+void checkRam()
+ {
+  unsigned int freeram = freeRam();
+#ifdef DEBUG_FREE_MEM
+if (freeram < 256)
+  {
+    Serial.print("Warning! Lo mem: ");
+    Serial.println(freeRam());
+  }
+else
+  {
+    Serial.print("Free mem: ");
+    Serial.println(freeRam());
+  }
+#endif
+
+
+  if (freeram < 128)
+  {
+  SetErrorStatus(ERRSTATUS_OUT_OF_MEMORY);
+  SetStatus(STATUS_UNRECOVERABLE_ERROR);
+  }
+
+
+}
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -276,8 +436,11 @@ int init_module( unsigned long baudrate )
 #ifdef LCD
   lcd.print("fail!");
 #endif
+#ifdef DEBUG_MAIN
+	printf("mcp2515 init failed!");
+#endif
+    SetErrorStatus(ERRSTATUS_CAN_INIT_ERROR);
     return 0;
-    
   }
   
   // we are in config mode by default, before opening the channel
@@ -300,7 +463,7 @@ int init_module( unsigned long baudrate )
   lcd.setCursor(11,1);
   lcd.print(" ok");
 #endif
-  
+
   return 1;
 }
 
@@ -410,8 +573,29 @@ void setup() {
   lcd.display();
 #endif
 
+#ifdef ENABLE_LEDS
+  status_LED.enabled=false;
+  status_LED.pin= LED_PIN_STATUS;
+  CAN_LED.enabled=false;
+  CAN_LED.pin= LED_PIN_CAN;
+  error_LED.enabled=false;
+  error_LED.pin= LED_PIN_ERROR;
+#endif  
+  SetErrorStatus(ERRSTATUS_NONE);
+  SetStatus(STATUS_INIT);
+
   // we have to initialize the CAN module anyway, otherwise SPI commands (read registers/status/get_operation_mode etc) hang during invocation
-  init_module(125000); // default speed
+  if (init_module(125000)) // default speed
+  {
+    SetStatus(STATUS_CONFIG);
+  } else
+  {
+    SetErrorStatus(ERRSTATUS_CAN_INIT_ERROR);
+    SetStatus(STATUS_UNRECOVERABLE_ERROR);
+  }
+  // set MCP2551 to normal mode
+  pinMode(MCP2551_STANDBY_PIN,OUTPUT);
+  digitalWrite(MCP2551_STANDBY_PIN,LOW);
   
 #ifdef USBCAN
   UsbCAN::init_protocol();
@@ -426,14 +610,60 @@ void setup() {
   keepalive_msg.header.rtr = 0;
   keepalive_msg.header.eid = 1;
   keepalive_msg.header.length = 8;
+
+/*
   keepalive_msg.id = 0x000ffffe;
   keepalive_msg.data[0] = 0xd8;
   int i;
   for (i=1;i<8;i++)
     keepalive_msg.data[i] = 0x00;  
-    
+*/
+  keepalive_msg.id = 0x000ffffe;
+  keepalive_msg.data[0] = 0xd8;
+  int i;
+  for (i=1;i<8;i++)
+    keepalive_msg.data[i] = 0x00;  
+
+
+
+  // initialize the keep-alive message
+  last_keepalive_msg2=millis();
+
+  keepalive_msg2.header.rtr = 0;
+  keepalive_msg2.header.eid = 1;
+  keepalive_msg2.header.length = 8;
+
+  keepalive_msg2.id = 0x00400066;
+
+  for (i=0;i<8;i++)
+    keepalive_msg2.data[i] = 0x00;  
+  
+  keepalive_msg2.data[4] = 0x1f;
+  keepalive_msg2.data[5] = 0x40;
+
+/*
   // initialize the fixed filter to pass all
   fixed_filter_pattern = fixed_filter_mask = 0;
+*/
+  //init fixed filter to pass no messages initially (unless explicitly allowed by PASS_ALL_MSGS or PASS_VOLVO_DIAGNOSTIC_MSGS
+  fixed_filter_pattern = 0;
+  fixed_filter_mask = 0xFFFFFFFF;
+
+
+  switch_mode(MODE_NORMAL);
+
+#ifdef DEBUG_FREE_MEM
+  unsigned int freemem = freeRam();
+  Serial.print("free mem: ");
+  Serial.println(freemem);
+#endif
+
+ // keep-alive messages not enabled by default
+  keepalive_timeout = 0;
+//  keepalive_timeout2 = 50;
+  keepalive_timeout2 = 0;
+
+
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -441,6 +671,9 @@ void setup() {
 // Only diagnostic response addresses will pass the filter 
 bool does_pass_filter( tCAN * message )
 {
+#ifdef PASS_ALL_MSGS
+  return true;
+#endif
 #ifdef PASS_VOLVO_DIAGNOSTIC_MSGS
   if ((message->id & 0xffff0000) == 0x00800000)
     return true;
@@ -491,10 +724,26 @@ int set_fixed_filter_mask( unsigned long mask )
 
 int switch_mode( unsigned int mode)
 {
-#ifdef LCD
+  mcp2515_bit_modify(CANCTRL, (1<<REQOP2)|(1<<REQOP1)|(1<<REQOP0), mode<<REQOP0);
+  delay(1);
+  unsigned int ret_mode = get_operation_mode();  
+  if (ret_mode != mode)
+  {
+#ifdef DEBUG_MAIN
+	printf("Switch_mode failed %d->%d!\n",ret_mode,mode);
+#endif
+    SetErrorStatus(ERRSTATUS_CAN_INIT_ERROR);
+  }
+  
+  #ifdef LCD
   lcd.setCursor(0,0);
   lcd.print("mode: ");
-  switch (mode)
+  if (ret_mode != mode)
+  {
+      lcd.print("error!");
+      return 0;
+  } else
+  switch (ret_mode)
   {
     case MODE_NORMAL:
       lcd.print("normal");
@@ -518,9 +767,18 @@ int switch_mode( unsigned int mode)
   }
 #endif
 
-  mcp2515_bit_modify(CANCTRL, (1<<REQOP2)|(1<<REQOP1)|(1<<REQOP0), mode<<REQOP0);
-  delay(1);
-  return (get_operation_mode()==mode);  
+  if ( (ret_mode==MODE_NORMAL) || (mode==MODE_LISTEN) )
+    SetStatus(STATUS_READY);
+  else if (ret_mode==MODE_CONFIG)
+    SetStatus(STATUS_CONFIG);
+  else 
+    {
+    SetStatus(STATUS_UNRECOVERABLE_ERROR); // we don't handle other modes currently  
+    SetErrorStatus(ERRSTATUS_CAN_INIT_ERROR);
+    }
+
+
+  return (ret_mode == mode);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -572,6 +830,8 @@ void handle_CAN_rx()
 {
   while (mcp2515_check_message())
     {
+   SetLED(&CAN_LED, 50);
+      
     tCAN message;
 //    char data[8];
     uint8_t status = mcp2515_get_message(  &message );
@@ -590,6 +850,13 @@ void handle_CAN_rx()
 #endif
         
           } // if (pass_filter..
+        
+        // check if RX buffer overflow has occured since last receive
+        uint8_t eflg = mcp2515_read_register(EFLG);
+        if (EFLG & (1<<RX1OVR) )
+        {
+          SetErrorStatus(ERRSTATUS_CAN_RX_BUFFER_OVERFLOW);
+        }
           
        } // if (status)  {
 
@@ -657,16 +924,33 @@ void handle_host_messages()
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void loop() {
-
   handle_host_messages();
   handle_CAN_rx();
 
+
+
   if (keepalive_timeout>0)
-    if (millis()-last_keepalive_msg > keepalive_timeout*100)
+    if (millis()-last_keepalive_msg > keepalive_timeout *100)
       {
       send_CAN_msg(&keepalive_msg);
       last_keepalive_msg = millis();
       }
+
+  if (keepalive_timeout2>0)
+    if (millis()-last_keepalive_msg2 > keepalive_timeout2 *100)
+      {
+      send_CAN_msg(&keepalive_msg2);
+      last_keepalive_msg2 = millis();
+      }
+      
+  checkRam();
+  
+#ifdef ENABLE_LEDS
+			HandleLED( &status_LED );
+			HandleLED( &CAN_LED );
+			HandleLED( &error_LED );
+#endif
+
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
