@@ -7,7 +7,7 @@ Sardine CAN - Arduino firmware installation procedure
 - Install Arduino drivers and SDK / IDE. Make sure it works with a simple Hello world application. Test also the communication with Serial Monitor
   embedded in the Arduino IDE. Note which COM port is being used. Make sure you use 115200 baud rate (the default speed in Sardine CAN)
 
-- copy Canbus directory under your Arduino SDK library directory (eg. c:\Arduino\libraries )
+- copy Canbus & TimerOne directories under your Arduino SDK library directory (eg. c:\Arduino\libraries )
 
 - Open the sardine.ino project in the IDE. Compile and flash Arduino with it.
 
