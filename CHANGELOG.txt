@@ -1,3 +1,15 @@
+0.4 alpha
+ - Addea fancy LEDs (analog pins A3-A5) for status, CAN activity and error situations.
+ - By default the filter does not pass anything except Volvo diagnostic messages. Uncomment #define PASS_ALL_MSGS to change that
+ - Added possibility to send keepalive CAN msgs (disabled by default).
+ - More verbuse debug messaging added
+ - More robust error handling
+
+0.3 alpha
+-Added support for Lawicel CANUSB/CAN232 commandset (this the default protocol currently)
+-Lots of code restructuring 
+-Changed command separator from linefeed to carriage return
+
 0.22 alpha:
 -Fixed error message when parsing empty message
 

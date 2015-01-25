@@ -1,5 +1,6 @@
 Thanks goes to following people from whom I've used code in this firmware:
 
+- Michael Wolf for the Lawicel CANUSB compatible USB<>CAN bus interface ( http://www.mictronics.de/projects/usb-can-bus/ )
 - Fabian Greif for the mcp2515 library (http://www.kreatives-chaos.com/artikel/universelle-can-bibliothek)
 - Nuno Alves for the modified mcp2515 library (http://www.nunoalves.com/open_source/?p=475) which allows sending frames with extended identifier 
   (I've further modified the library myself: Added also possibility to  _read_ frames that use extended identifier :)
