@@ -11,6 +11,9 @@ Sardine CAN - Arduino firmware installation procedure
 
 - Open the sardine.ino project in the IDE. Compile and flash Arduino with it.
 
+  NOTE. Incoming filter does not pass messages by default, since VIDA seems to crash at start if all CAN messages are transmitted to it. If you are not using VIDA but 
+  for example CAN Hacker, you can set the PASS_ALL_MSGS define or use Lawicell 'M' and 'm' commands to set acceptance register (set mask to 0x0 to pass all messages).
+
 - You can test the device with CanHacker ( http://www.mictronics.de/projects/usb-can-bus/ ) using COM port directly, or the
    Drewtech J2534-1 Bus Analysis Tool v1.07 ( http://www.drewtech.com/downloads/index.html ) via J2534 interface (Sardine CAN Win32 DLL)
 
